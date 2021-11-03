@@ -1,4 +1,4 @@
-package cinema.requests;
+package cinema.wrappers;
 
 import cinema.objects.Seat;
 

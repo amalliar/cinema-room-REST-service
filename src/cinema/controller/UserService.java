@@ -1,8 +1,10 @@
 package cinema.controller;
 
+import cinema.exception.BadRequestException;
+import cinema.exception.UnauthorizedException;
 import cinema.objects.Cinema;
 import cinema.objects.Seat;
-import cinema.requests.*;
+import cinema.wrappers.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -15,10 +17,16 @@ public final class UserService {
 
     private final Cinema cinema;
     private final Map<String, Seat> takenSeats;
+    private int currentIncome;
+    private int numberOfAvailableSeats;
+    private int numberOfPurchasedTickets;
 
     public UserService(Cinema cinema) {
         this.cinema = cinema;
         this.takenSeats = new HashMap<>();
+        this.currentIncome = 0;
+        this.numberOfAvailableSeats = cinema.getAvailable_seats().size();
+        this.numberOfPurchasedTickets = 0;
     }
 
     public ResponseEntity<Cinema> getSeats() {
@@ -31,7 +39,7 @@ public final class UserService {
             PurchaseRequest request) {
         if (request.getRow() < 1 || request.getRow() > cinema.getTotal_rows() ||
                 request.getColumn() < 1 || request.getColumn() > cinema.getTotal_columns()) {
-            throw new RequestException(
+            throw new BadRequestException(
                     "The number of a row or a column is out of bounds!");
         }
 
@@ -43,11 +51,14 @@ public final class UserService {
                         UUID.randomUUID().toString(), seat
                 );
                 takenSeats.put(response.getToken(), response.getTicket());
+                currentIncome += seat.getPrice();
+                numberOfAvailableSeats -= 1;
+                numberOfPurchasedTickets += 1;
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
         }
 
-        throw new RequestException(
+        throw new BadRequestException(
                 "The ticket has been already purchased!");
     }
 
@@ -55,7 +66,7 @@ public final class UserService {
             ReturnRequest request) {
         Seat toReturn = takenSeats.get(request.getToken());
         if (toReturn == null) {
-            throw new RequestException("Wrong token!");
+            throw new BadRequestException("Wrong token!");
         }
 
         List<Seat> allSeats = cinema.getAvailable_seats();
@@ -71,6 +82,22 @@ public final class UserService {
             }
         }
         allSeats.add(idx, toReturn);
+        currentIncome -= toReturn.getPrice();
+        numberOfAvailableSeats += 1;
+        numberOfPurchasedTickets -= 1;
         return new ResponseEntity<>(new ReturnResponse(toReturn), HttpStatus.OK);
+    }
+
+    public ResponseEntity<StatsResponse> getStats(String password) {
+        if (!"super_secret".equals(password)) {
+            throw new UnauthorizedException(
+                    "The password is wrong!"
+            );
+        }
+        return new ResponseEntity<>(new StatsResponse(
+                        currentIncome,
+                        numberOfAvailableSeats,
+                        numberOfPurchasedTickets),
+                HttpStatus.OK);
     }
 }

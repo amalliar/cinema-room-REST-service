@@ -1,4 +1,4 @@
-package cinema.requests;
+package cinema.wrappers;
 
 public final class PurchaseRequest {
 
